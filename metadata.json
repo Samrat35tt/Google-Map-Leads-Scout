@@ -1,6 +1,6 @@
 {
-  "name": "LeadScout AI",
-  "description": "A compliant B2B lead generation and scripting tool powered by Google Maps and Gemini AI.",
+  "name": "Mapx",
+  "description": "Strategic B2B lead generation and ROI-based scouting powered by Google Maps and Gemini AI.",
   "requestFramePermissions": [
     "geolocation"
   ]
