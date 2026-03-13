@@ -21,21 +21,6 @@ import TaskManager from './components/TaskManager';
 import KnowledgeBase from './components/KnowledgeBase';
 import MeetingIntelligence from './components/MeetingIntelligence';
 import ComplianceModal from './components/ComplianceModal';
-import { auth, db, signInWithGoogle, logout, OperationType, handleFirestoreError } from './firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  addDoc, 
-  serverTimestamp 
-} from 'firebase/firestore';
 import { DEFAULT_LLM_SETTINGS } from './services/settingsStore';
 import { Lead, SearchState, GroundingChunk, LeadAnalysis, AppUser, SearchLog, Workflow, Conversation, Message, KnowledgeDocument, Meeting, LLMSettings } from './types';
 import { searchLeadsWithGemini, getCitiesForCountry, getAreasForCity, analyzeLeadWithGemini } from './services/gemini';
@@ -64,8 +49,17 @@ const safeUUID = () => {
 };
 
 const AppContent = () => {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AppUser | null>({
+    id: 'local-user',
+    email: 'local@example.com',
+    name: 'Local User',
+    plan: 'pro',
+    credits: 10000,
+    isAdmin: true,
+    complianceAccepted: true,
+    settings: DEFAULT_LLM_SETTINGS
+  });
+  const [loading, setLoading] = useState(false);
   const [originalAdmin, setOriginalAdmin] = useState<AppUser | null>(null);
 
   // Search State
@@ -110,140 +104,16 @@ const AppContent = () => {
 
   const navigate = useNavigate();
 
-  // 1. Auth Listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Check if user exists in Firestore
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as AppUser;
-          setUser(userData);
-          setCredits(userData.credits || 0);
-          if (userData.settings) {
-            setSettings(userData.settings);
-          }
-        } else {
-          // Create new user
-          const newUser: AppUser = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || '',
-            plan: 'free',
-            credits: 50,
-            isAdmin: false,
-            complianceAccepted: false,
-            settings: DEFAULT_LLM_SETTINGS
-          };
-          await setDoc(userDocRef, {
-            ...newUser,
-            createdAt: serverTimestamp()
-          });
-          setUser(newUser);
-          setCredits(50);
-          setSettings(DEFAULT_LLM_SETTINGS);
-        }
-      } else {
-        setUser(null);
-        setCredits(0);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Data Listeners (Firestore)
-  useEffect(() => {
-    if (!user) {
-      setContacts([]);
-      setWorkflows([]);
-      setSearchHistory([]);
-      setConversations([]);
-      setKnowledgeDocs([]);
-      setMeetings([]);
-      return;
-    }
-
-    if (!user.complianceAccepted) {
-       setShowComplianceModal(true);
-    }
-
-    // Listen to Leads (Contacts)
-    const qLeads = query(collection(db, 'leads'), where('ownerId', '==', user.id));
-    const unsubLeads = onSnapshot(qLeads, (snapshot) => {
-      setContacts(snapshot.docs.map(doc => doc.data() as Lead));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'leads'));
-
-    // Listen to Knowledge
-    const qKnowledge = query(collection(db, 'knowledge'), where('ownerId', '==', user.id));
-    const unsubKnowledge = onSnapshot(qKnowledge, (snapshot) => {
-      setKnowledgeDocs(snapshot.docs.map(doc => doc.data() as KnowledgeDocument));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'knowledge'));
-
-    // Listen to Meetings
-    const qMeetings = query(collection(db, 'meetings'), where('ownerId', '==', user.id));
-    const unsubMeetings = onSnapshot(qMeetings, (snapshot) => {
-      setMeetings(snapshot.docs.map(doc => doc.data() as Meeting));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'meetings'));
-
-    // Listen to Workflows
-    const qWorkflows = query(collection(db, 'workflows'), where('ownerId', '==', user.id));
-    const unsubWorkflows = onSnapshot(qWorkflows, (snapshot) => {
-      setWorkflows(snapshot.docs.map(doc => doc.data() as Workflow));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'workflows'));
-
-    // Listen to Conversations
-    const qConversations = query(collection(db, 'conversations'), where('ownerId', '==', user.id));
-    const unsubConversations = onSnapshot(qConversations, (snapshot) => {
-      setConversations(snapshot.docs.map(doc => doc.data() as Conversation));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'conversations'));
-
-    // Listen to Search History
-    const qHistory = query(collection(db, 'search_history'), where('ownerId', '==', user.id));
-    const unsubHistory = onSnapshot(qHistory, (snapshot) => {
-      setSearchHistory(snapshot.docs.map(doc => doc.data() as SearchLog));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'search_history'));
-
-    return () => {
-      unsubLeads();
-      unsubKnowledge();
-      unsubMeetings();
-      unsubWorkflows();
-      unsubConversations();
-      unsubHistory();
-    };
-  }, [user]);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      setError("Failed to sign in with Google");
-    }
-  };
-
   const handleUpdateSettings = async (newSettings: LLMSettings) => {
     if (!user) return;
-    try {
-      await updateDoc(doc(db, 'users', user.id), { settings: newSettings });
-      setSettings(newSettings);
-    } catch (err) {
-      console.error("Failed to update settings", err);
-    }
+    setUser({ ...user, settings: newSettings });
+    setSettings(newSettings);
   };
 
   const handleAcceptCompliance = async () => {
     if (!user) return;
-    try {
-      await updateDoc(doc(db, 'users', user.id), { complianceAccepted: true });
-      setUser({ ...user, complianceAccepted: true });
-      setShowComplianceModal(false);
-    } catch (err) {
-      console.error("Failed to accept compliance", err);
-    }
+    setUser({ ...user, complianceAccepted: true });
+    setShowComplianceModal(false);
   };
 
   const consumeCredits = useCallback(async (amount: number): Promise<boolean> => {
@@ -253,15 +123,8 @@ const AppContent = () => {
       return false;
     }
     
-    try {
-      const newCredits = credits - amount;
-      await updateDoc(doc(db, 'users', user.id), { credits: newCredits });
-      setCredits(newCredits);
-      return true;
-    } catch (err) {
-      console.error("Failed to update credits", err);
-      return false;
-    }
+    setCredits(prev => prev - amount);
+    return true;
   }, [credits, user]);
 
   // --- Handlers ---
@@ -321,15 +184,7 @@ const AppContent = () => {
       };
 
       if (user) {
-        try {
-          await addDoc(collection(db, 'search_history'), {
-            ...newLog,
-            ownerId: user.id,
-            createdAt: serverTimestamp()
-          });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.CREATE, 'search_history');
-        }
+        setSearchHistory(prev => [newLog, ...prev]);
       }
 
     } catch (err: any) {
@@ -372,76 +227,48 @@ const AppContent = () => {
         leadToSave.id = `lead-${Date.now()}`;
     }
 
-    try {
-      await setDoc(doc(db, 'leads', leadToSave.id), {
-        ...leadToSave,
-        ownerId: user.id,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `leads/${leadToSave.id}`);
-    }
+    setContacts(prev => {
+      const exists = prev.find(c => c.id === leadToSave.id);
+      if (exists) {
+        return prev.map(c => c.id === leadToSave.id ? leadToSave : c);
+      }
+      return [...prev, leadToSave];
+    });
   };
 
   const handleDeleteContact = async (id: string) => {
     if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'leads', id));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `leads/${id}`);
-    }
+    setContacts(prev => prev.filter(c => c.id !== id));
   };
 
   const handleUpdateConversation = async (conversation: Conversation) => {
     if (!user) return;
-    try {
-      await setDoc(doc(db, 'conversations', conversation.id), {
-        ...conversation,
-        ownerId: user.id,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `conversations/${conversation.id}`);
-    }
+    setConversations(prev => {
+      const exists = prev.find(c => c.id === conversation.id);
+      if (exists) {
+        return prev.map(c => c.id === conversation.id ? conversation : c);
+      }
+      return [...prev, conversation];
+    });
   };
 
   const handleCreateNewWorkflow = async (wf: Workflow) => {
     if (!user) return;
-    try {
-      await setDoc(doc(db, 'workflows', wf.id), {
-        ...wf,
-        ownerId: user.id,
-        createdAt: serverTimestamp()
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `workflows/${wf.id}`);
-    }
+    setWorkflows(prev => [...prev, wf]);
   };
 
   const handleUpdateWorkflow = async (wf: Workflow) => {
     if (!user) return;
-    try {
-      await setDoc(doc(db, 'workflows', wf.id), {
-        ...wf,
-        ownerId: user.id,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `workflows/${wf.id}`);
-    }
+    setWorkflows(prev => prev.map(w => w.id === wf.id ? wf : w));
   };
 
   const handleDeleteWorkflow = async (id: string) => {
     if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'workflows', id));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `workflows/${id}`);
-    }
+    setWorkflows(prev => prev.filter(w => w.id !== id));
   };
 
   const handleLogout = async () => {
-    await logout();
+    setUser(null);
     navigate('/');
   };
 
@@ -458,42 +285,13 @@ const AppContent = () => {
 
   if (!user) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#f8fafc] p-6">
-        <div className="max-w-md w-full bg-white rounded-[32px] border border-[#e0f2fe] shadow-xl p-10 text-center animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-20 h-20 bg-[#f0f9ff] rounded-3xl flex items-center justify-center mx-auto mb-8 text-[#0ea5e9]">
-            <Zap size={40} fill="currentColor" />
-          </div>
-          <h1 className="text-3xl font-bold text-[#1f1f1f] mb-3">Welcome to SalesOxe</h1>
-          <p className="text-[#444746] mb-10 leading-relaxed">
-            The AI-powered growth engine for modern sales teams. Sign in to access your leads, campaigns, and intelligence.
-          </p>
-          <button 
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-3 py-4 bg-[#1f1f1f] text-white rounded-2xl font-semibold hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-[0.98]"
-          >
-            <LogIn size={20} />
-            Sign in with Google
-          </button>
-          <p className="mt-8 text-xs text-[#888] font-medium">
-            By signing in, you agree to our Terms of Service and Privacy Policy.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (user.suspended) {
-    return (
       <div className="min-h-screen bg-[#f0f9ff] flex items-center justify-center p-6">
         <div className="bg-white p-12 rounded-[32px] shadow-sm max-w-md text-center border border-red-100">
            <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <Ban size={40} />
            </div>
-           <h1 className="text-2xl font-normal text-[#1f1f1f] mb-2">Account Suspended</h1>
-           <p className="text-[#444746] mb-8">Access to your SalesOxe account has been disabled.</p>
-           <button onClick={handleLogout} className="w-full py-3 bg-[#1f1f1f] text-white rounded-full font-medium hover:bg-black transition-all flex items-center justify-center gap-2">
-              <LogOut size={18} /> Sign Out
-           </button>
+           <h1 className="text-2xl font-normal text-[#1f1f1f] mb-2">No User</h1>
+           <p className="text-[#444746] mb-8">Please refresh the page.</p>
         </div>
       </div>
     );

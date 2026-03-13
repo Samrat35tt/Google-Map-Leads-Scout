@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppUser } from '../types';
 import { X, Search, UserPlus, Shield, Settings, Trash2, Mail, CreditCard, Calendar, Lock, AlertCircle, Edit2, LogIn, Ban, CheckCircle, Power } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 
 interface AdminPanelProps {
   currentUser: AppUser;
@@ -42,37 +40,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onClose, onImperso
   const fetchUsers = async () => {
     setIsLoading(true);
     
-    if (isSupabaseConfigured()) {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (data) {
-           const mappedUsers: AppUser[] = data.map((p: any) => ({
-             id: p.id,
-             email: p.email || 'No Email',
-             plan: p.plan || 'free',
-             credits: p.credits || 0,
-             created_at: p.created_at,
-             suspended: p.suspended || false,
-             isAdmin: p.email === 'admin@salesoxe.com'
-           }));
-           setUsers(mappedUsers);
-        }
-      } catch (e) {
-        console.error("Failed to fetch Supabase users", e);
-      }
-    } else {
-      await new Promise(r => setTimeout(r, 800));
-      const demoUsers: AppUser[] = [
-        { id: '1', email: 'admin@salesoxe.com', plan: 'agency', credits: 9999, isAdmin: true, created_at: new Date().toISOString(), suspended: false },
-        { id: '2', email: 'client@company.com', plan: 'growth', credits: 450, created_at: new Date(Date.now() - 86400000).toISOString(), suspended: false },
-        { id: '3', email: 'suspended@baduser.com', plan: 'free', credits: 0, created_at: new Date(Date.now() - 90000000).toISOString(), suspended: true },
-      ];
-      setUsers(demoUsers);
-    }
+    await new Promise(r => setTimeout(r, 800));
+    const demoUsers: AppUser[] = [
+      { id: '1', email: 'admin@salesoxe.com', plan: 'agency', credits: 9999, isAdmin: true, created_at: new Date().toISOString(), suspended: false },
+      { id: '2', email: 'client@company.com', plan: 'growth', credits: 450, created_at: new Date(Date.now() - 86400000).toISOString(), suspended: false },
+      { id: '3', email: 'suspended@baduser.com', plan: 'free', credits: 0, created_at: new Date(Date.now() - 90000000).toISOString(), suspended: true },
+    ];
+    setUsers(demoUsers);
     
     setIsLoading(false);
   };
@@ -81,72 +55,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onClose, onImperso
     e.preventDefault();
     setIsCreating(true);
 
-    if (isSupabaseConfigured()) {
-        try {
-            const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-              auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-            });
-
-            const { data: authData, error: authError } = await tempClient.auth.signUp({
-                email: newUserEmail,
-                password: newUserPassword,
-                options: {
-                    data: { plan: 'free', credits: newUserCredits, role: 'user' }
-                }
-            });
-
-            if (authError) throw authError;
-
-            if (authData.user) {
-                const profileData = {
-                    id: authData.user.id,
-                    email: newUserEmail,
-                    credits: newUserCredits,
-                    plan: 'free',
-                    created_at: new Date().toISOString(),
-                    suspended: false
-                };
-
-                let profileCreated = false;
-
-                if (authData.session) {
-                    const { error } = await tempClient.from('profiles').upsert(profileData);
-                    if (!error) profileCreated = true;
-                }
-
-                if (!profileCreated) {
-                    const { error } = await supabase.from('profiles').upsert(profileData);
-                    if (!error) profileCreated = true;
-                }
-
-                if (profileCreated) {
-                    await fetchUsers();
-                    alert(`User created successfully!\nEmail: ${newUserEmail}`);
-                    setShowCreateModal(false);
-                    setNewUserEmail('');
-                    setNewUserPassword('');
-                    setNewUserCredits(50);
-                } else {
-                    alert("User created in Auth, but Profile creation failed. Please check console for errors.");
-                }
-            }
-            
-        } catch (error: any) {
-            alert(`Failed to create user: ${error.message}`);
-        }
-    } else {
-        await new Promise(r => setTimeout(r, 1000));
-        const newUser: AppUser = {
-            id: `created-${Date.now()}`,
-            email: newUserEmail,
-            plan: 'free',
-            credits: newUserCredits,
-            created_at: new Date().toISOString(),
-            suspended: false
-        };
-        setUsers([newUser, ...users]);
-        setShowCreateModal(false);
-    }
+    await new Promise(r => setTimeout(r, 1000));
+    const newUser: AppUser = {
+        id: `created-${Date.now()}`,
+        email: newUserEmail,
+        plan: 'free',
+        credits: newUserCredits,
+        created_at: new Date().toISOString(),
+        suspended: false
+    };
+    setUsers([newUser, ...users]);
+    setShowCreateModal(false);
 
     setIsCreating(false);
   };
@@ -161,26 +80,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onClose, onImperso
       if (!userToEdit) return;
       setIsSavingEdit(true);
 
-      if (isSupabaseConfigured()) {
-          try {
-              const { error } = await supabase
-                .from('profiles')
-                .update({ credits: editCredits })
-                .eq('id', userToEdit.id);
-
-              if (error) throw error;
-              await fetchUsers();
-              setShowEditModal(false);
-              setUserToEdit(null);
-          } catch(e: any) {
-              alert(`Failed to update user: ${e.message}`);
-          }
-      } else {
-          await new Promise(r => setTimeout(r, 500));
-          setUsers(users.map(u => u.id === userToEdit.id ? { ...u, credits: editCredits } : u));
-          setShowEditModal(false);
-          setUserToEdit(null);
-      }
+      await new Promise(r => setTimeout(r, 500));
+      setUsers(users.map(u => u.id === userToEdit.id ? { ...u, credits: editCredits } : u));
+      setShowEditModal(false);
+      setUserToEdit(null);
       setIsSavingEdit(false);
   };
 
@@ -190,40 +93,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onClose, onImperso
       // If called from modal, set saving state there
       if (userToEdit && userToEdit.id === targetUser.id) setIsSavingEdit(true);
 
-      if (isSupabaseConfigured()) {
-          try {
-              const { error } = await supabase
-                .from('profiles')
-                .update({ suspended: newStatus })
-                .eq('id', targetUser.id);
-
-              if (error) throw error;
-              
-              // Optimistic update for list
-              setUsers(prev => prev.map(u => u.id === targetUser.id ? { ...u, suspended: newStatus } : u));
-              
-              // Update modal if open
-              if (userToEdit && userToEdit.id === targetUser.id) {
-                  setUserToEdit({ ...userToEdit, suspended: newStatus });
-              }
-
-          } catch(e: any) {
-              const msg = e.message || JSON.stringify(e);
-              // Handle missing column error (code 42703 or specific text)
-              if (msg.includes("suspended") || msg.includes("column") || e.code === '42703') {
-                  alert("⚠️ Database Setup Required\n\nThe 'suspended' column is missing from your database.\n\nPlease run this SQL in your Supabase SQL Editor to fix it:\n\nalter table profiles add column suspended boolean default false;");
-              } else {
-                  alert(`Failed to update status: ${msg}`);
-              }
-          }
-      } else {
-           // Demo mode
-           await new Promise(r => setTimeout(r, 300));
-           const updated = { ...targetUser, suspended: newStatus };
-           setUsers(prev => prev.map(u => u.id === targetUser.id ? updated : u));
-           if (userToEdit && userToEdit.id === targetUser.id) {
-               setUserToEdit(updated);
-           }
+      // Demo mode
+      await new Promise(r => setTimeout(r, 300));
+      const updated = { ...targetUser, suspended: newStatus };
+      setUsers(prev => prev.map(u => u.id === targetUser.id ? updated : u));
+      if (userToEdit && userToEdit.id === targetUser.id) {
+          setUserToEdit(updated);
       }
       
       if (userToEdit && userToEdit.id === targetUser.id) setIsSavingEdit(false);
@@ -240,51 +115,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onClose, onImperso
     if (!userToDelete) return;
     setIsDeleting(true);
 
-    if (isSupabaseConfigured()) {
-        try {
-            const { error: authError } = await supabase.auth.signInWithPassword({
-                email: currentUser.email,
-                password: adminPassword
-            });
-
-            if (authError) {
-                alert("Incorrect password. Please verify your admin credentials.");
-                setIsDeleting(false);
-                return;
-            }
-
-            const { error: deleteError } = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', userToDelete.id);
-
-            if (deleteError) throw deleteError;
-
-            try {
-                 await supabase.rpc('delete_user_by_admin', { user_id: userToDelete.id });
-            } catch (e) {}
-
-            alert(`User ${userToDelete.email} has been deleted.`);
-            await fetchUsers();
-            setShowDeleteModal(false);
-            setUserToDelete(null);
-            setAdminPassword('');
-
-        } catch (error: any) {
-            alert(`Delete failed: ${error.message}`);
-        }
-    } else {
-        await new Promise(r => setTimeout(r, 1000));
-        if (adminPassword !== 'admin123' && adminPassword !== 'password') { 
-             alert("Incorrect password (Try 'password' or 'admin123' in demo mode)");
-             setIsDeleting(false);
-             return;
-        }
-        setUsers(users.filter(u => u.id !== userToDelete!.id));
-        setShowDeleteModal(false);
-        setUserToDelete(null);
-        setAdminPassword('');
+    await new Promise(r => setTimeout(r, 1000));
+    if (adminPassword !== 'admin123' && adminPassword !== 'password') { 
+         alert("Incorrect password (Try 'password' or 'admin123' in demo mode)");
+         setIsDeleting(false);
+         return;
     }
+    setUsers(users.filter(u => u.id !== userToDelete!.id));
+    setShowDeleteModal(false);
+    setUserToDelete(null);
+    setAdminPassword('');
     
     setIsDeleting(false);
   };

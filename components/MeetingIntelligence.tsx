@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Meeting, AppUser } from '../types';
 import { Video, Plus, FileText, Play, CheckCircle2, Search, FileAudio, Bot, FileSignature } from 'lucide-react';
 import { generateMeetingProposal } from '../services/gemini';
-import { db, handleFirestoreError } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 interface MeetingIntelligenceProps {
   user: AppUser;
@@ -18,25 +16,7 @@ export default function MeetingIntelligence({ user }: MeetingIntelligenceProps) 
 
   useEffect(() => {
     if (!user) return;
-
-    const q = query(
-      collection(db, 'meetings'),
-      where('ownerId', '==', user.id)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Meeting[];
-      setMeetings(docs);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, 'list' as any, 'meetings');
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    setLoading(false);
   }, [user]);
 
   const handleGenerateProposal = async (meeting: Meeting) => {
@@ -46,15 +26,16 @@ export default function MeetingIntelligence({ user }: MeetingIntelligenceProps) 
     try {
       const proposal = await generateMeetingProposal(meeting.transcript, meeting.summary);
       
-      const docRef = doc(db, 'meetings', meeting.id);
-      await updateDoc(docRef, {
+      const updatedMeeting = {
+        ...meeting,
         proposal,
         updatedAt: new Date().toISOString()
-      });
+      };
       
-      // The onSnapshot listener will update the local state
+      setMeetings(prev => prev.map(m => m.id === meeting.id ? updatedMeeting : m));
+      setSelectedMeeting(updatedMeeting);
     } catch (error) {
-      handleFirestoreError(error, 'update' as any, 'meetings');
+      console.error("Failed to generate proposal", error);
       alert("Failed to generate proposal. Please try again.");
     } finally {
       setIsGeneratingProposal(false);
@@ -65,7 +46,8 @@ export default function MeetingIntelligence({ user }: MeetingIntelligenceProps) 
     if (!user) return;
     alert("Fireflies integration would open OAuth flow here. For now, we'll simulate fetching a new meeting.");
     try {
-      await addDoc(collection(db, 'meetings'), {
+      const newMeeting: Meeting = {
+        id: `meeting-${Date.now()}`,
         title: 'Product Demo with Globex',
         date: new Date().toISOString(),
         provider: 'fireflies',
@@ -75,9 +57,10 @@ export default function MeetingIntelligence({ user }: MeetingIntelligenceProps) 
         ownerId: user.id,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      };
+      setMeetings(prev => [newMeeting, ...prev]);
     } catch (error) {
-      handleFirestoreError(error, 'create' as any, 'meetings');
+      console.error("Failed to add meeting", error);
     }
   };
 
@@ -85,7 +68,8 @@ export default function MeetingIntelligence({ user }: MeetingIntelligenceProps) 
     if (!user) return;
     alert("Fathom integration would open OAuth flow here. For now, we'll simulate fetching a new meeting.");
     try {
-      await addDoc(collection(db, 'meetings'), {
+      const newMeeting: Meeting = {
+        id: `meeting-${Date.now()}`,
         title: 'Sync with Initech',
         date: new Date().toISOString(),
         provider: 'fathom',
@@ -95,9 +79,10 @@ export default function MeetingIntelligence({ user }: MeetingIntelligenceProps) 
         ownerId: user.id,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      };
+      setMeetings(prev => [newMeeting, ...prev]);
     } catch (error) {
-      handleFirestoreError(error, 'create' as any, 'meetings');
+      console.error("Failed to add meeting", error);
     }
   };
 

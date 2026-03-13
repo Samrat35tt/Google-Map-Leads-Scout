@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KnowledgeDocument, AppUser } from '../types';
 import { Book, Plus, FileText, Link as LinkIcon, Trash2, Search, Edit2 } from 'lucide-react';
-import { db, handleFirestoreError } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 interface KnowledgeBaseProps {
   user: AppUser;
@@ -24,24 +22,16 @@ export default function KnowledgeBase({ user }: KnowledgeBaseProps) {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
-      collection(db, 'knowledge'),
-      where('ownerId', '==', user.id)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as KnowledgeDocument[];
-      setDocuments(docs);
+    const fetchDocuments = async () => {
+      // Mock data for now
+      setDocuments([
+        { id: '1', title: 'Company Overview', content: 'We are a leading provider of AI solutions...', type: 'text', ownerId: user.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '2', title: 'Product Features', content: 'Our product includes features like...', type: 'text', ownerId: user.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+      ]);
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, 'list' as any, 'knowledge');
-      setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    fetchDocuments();
   }, [user]);
 
   const handleSave = async () => {
@@ -49,31 +39,29 @@ export default function KnowledgeBase({ user }: KnowledgeBaseProps) {
 
     try {
       if (editingDoc) {
-        const docRef = doc(db, 'knowledge', editingDoc.id);
-        await updateDoc(docRef, {
-          ...formData,
-          updatedAt: new Date().toISOString()
-        });
+        setDocuments(prev => prev.map(d => d.id === editingDoc.id ? { ...d, ...formData, updatedAt: new Date().toISOString() } : d));
       } else {
-        await addDoc(collection(db, 'knowledge'), {
+        const newDoc: KnowledgeDocument = {
+          id: `knowledge-${Date.now()}`,
           ...formData,
           ownerId: user.id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        });
+        };
+        setDocuments(prev => [...prev, newDoc]);
       }
       closeModal();
     } catch (error) {
-      handleFirestoreError(error, editingDoc ? 'update' as any : 'create' as any, 'knowledge');
+      console.error("Failed to save knowledge document", error);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        await deleteDoc(doc(db, 'knowledge', id));
+        setDocuments(prev => prev.filter(d => d.id !== id));
       } catch (error) {
-        handleFirestoreError(error, 'delete' as any, 'knowledge');
+        console.error("Failed to delete knowledge document", error);
       }
     }
   };

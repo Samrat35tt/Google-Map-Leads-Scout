@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, TaskStatus, TaskPriority, Lead, AppUser } from '../types';
 import { Plus, MoreVertical, Calendar, User as LucideUser, Flag, CheckSquare, Search, LayoutList, Kanban, Clock, AlertCircle } from 'lucide-react';
-import { db, handleFirestoreError } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 interface TaskManagerProps {
   leads: Lead[];
@@ -45,24 +43,16 @@ export default function TaskManager({ leads, user }: TaskManagerProps) {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
-      collection(db, 'tasks'),
-      where('ownerId', '==', user.id)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Task[];
-      setTasks(docs);
+    const fetchTasks = async () => {
+      // Mock data for now
+      setTasks([
+        { id: '1', title: 'Follow up with lead', description: 'Call them to discuss pricing', status: 'todo', priority: 'high', ownerId: user.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        { id: '2', title: 'Prepare presentation', description: 'Create slides for tomorrow', status: 'in-progress', priority: 'medium', ownerId: user.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+      ]);
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, 'list' as any, 'tasks');
-      setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    fetchTasks();
   }, [user]);
 
   const handleSaveTask = async () => {
@@ -70,31 +60,29 @@ export default function TaskManager({ leads, user }: TaskManagerProps) {
 
     try {
       if (editingTask) {
-        const docRef = doc(db, 'tasks', editingTask.id);
-        await updateDoc(docRef, {
-          ...formData,
-          updatedAt: new Date().toISOString()
-        });
+        setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, ...formData, updatedAt: new Date().toISOString() } as Task : t));
       } else {
-        await addDoc(collection(db, 'tasks'), {
-          ...formData,
+        const newTask: Task = {
+          id: `task-${Date.now()}`,
+          ...(formData as any),
           ownerId: user.id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        });
+        };
+        setTasks(prev => [...prev, newTask]);
       }
       closeModal();
     } catch (error) {
-      handleFirestoreError(error, editingTask ? 'update' as any : 'create' as any, 'tasks');
+      console.error("Failed to save task", error);
     }
   };
 
   const handleDeleteTask = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
       try {
-        await deleteDoc(doc(db, 'tasks', id));
+        setTasks(prev => prev.filter(t => t.id !== id));
       } catch (error) {
-        handleFirestoreError(error, 'delete' as any, 'tasks');
+        console.error("Failed to delete task", error);
       }
     }
   };
@@ -125,13 +113,9 @@ export default function TaskManager({ leads, user }: TaskManagerProps) {
 
   const updateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
     try {
-      const docRef = doc(db, 'tasks', taskId);
-      await updateDoc(docRef, {
-        status: newStatus,
-        updatedAt: new Date().toISOString()
-      });
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t));
     } catch (error) {
-      handleFirestoreError(error, 'update' as any, 'tasks');
+      console.error("Failed to update task status", error);
     }
   };
 
