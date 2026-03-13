@@ -1,6 +1,6 @@
 {
-  "name": "Mapx",
-  "description": "Strategic B2B lead generation and ROI-based scouting powered by Google Maps and Gemini AI.",
+  "name": "SalesOxe",
+  "description": "The AI Sales Operating System. Strategic B2B lead generation and automation.",
   "requestFramePermissions": [
     "geolocation"
   ]

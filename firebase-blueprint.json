@@ -1,0 +1,144 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "credits": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A sales lead or contact",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "category": { "type": "string" },
+        "website": { "type": "string" },
+        "rating": { "type": "number" },
+        "pipelineStage": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId"]
+    },
+    "KnowledgeDocument": {
+      "title": "KnowledgeDocument",
+      "description": "A document in the knowledge base",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "url", "file"] },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "content", "ownerId"]
+    },
+    "Meeting": {
+      "title": "Meeting",
+      "description": "A recorded meeting and its analysis",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "provider": { "type": "string", "enum": ["fireflies", "fathom", "manual"] },
+        "status": { "type": "string", "enum": ["analyzing", "completed", "failed"] },
+        "summary": { "type": "string" },
+        "transcript": { "type": "string" },
+        "proposal": { "type": "string" },
+        "leadId": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "title", "ownerId"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A conversation with a lead",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "leadId": { "type": "string" },
+        "leadName": { "type": "string" },
+        "leadEmail": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "string", "format": "date-time" },
+        "unreadCount": { "type": "number" },
+        "channel": { "type": "string", "enum": ["email", "sms", "linkedin"] },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "leadId", "ownerId"]
+    },
+    "SearchLog": {
+      "title": "SearchLog",
+      "description": "A log of a search operation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "industry": { "type": "string" },
+        "country": { "type": "string" },
+        "location": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "resultsCount": { "type": "number" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "industry", "ownerId"]
+    },
+    "Workflow": {
+      "title": "Workflow",
+      "description": "An automation workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["id", "name", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Sales leads"
+    },
+    "/knowledge/{docId}": {
+      "schema": "KnowledgeDocument",
+      "description": "Knowledge base documents"
+    },
+    "/meetings/{meetingId}": {
+      "schema": "Meeting",
+      "description": "Meeting records"
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Conversations with leads"
+    },
+    "/search_history/{logId}": {
+      "schema": "SearchLog",
+      "description": "Search history logs"
+    },
+    "/workflows/{workflowId}": {
+      "schema": "Workflow",
+      "description": "Automation workflows"
+    }
+  }
+}

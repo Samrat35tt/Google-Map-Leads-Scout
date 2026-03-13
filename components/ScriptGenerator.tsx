@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
-import { Lead, ScriptOptions, LeadAnalysis } from '../types';
-import { generateLeadScript } from '../services/gemini';
-import { X, Copy, Check, Sparkles, BrainCircuit, Zap, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lead, ScriptOptions, LeadAnalysis, KnowledgeDocument } from '../types';
+import { generateScriptWithRouter } from '../services/llmRouter';
+import { X, Copy, Check, Sparkles, Zap, RefreshCw, MessageSquare, Book } from 'lucide-react';
 
 interface ScriptGeneratorProps {
   lead: Lead | null;
@@ -10,19 +10,19 @@ interface ScriptGeneratorProps {
   onClose: () => void;
   credits: number;
   onConsumeCredits: (amount: number) => boolean;
+  knowledgeDocs: KnowledgeDocument[];
 }
 
 const COST_SCRIPT = 5;
 
-const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({ lead, analysis, onClose, credits, onConsumeCredits }) => {
+const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({ lead, analysis, onClose, credits, onConsumeCredits, knowledgeDocs }) => {
   const [scriptType, setScriptType] = useState<ScriptOptions['type']>('cold_email');
   const [tone, setTone] = useState<ScriptOptions['tone']>('professional');
   const [generatedScript, setGeneratedScript] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-
-  // Removed auto-generation on mount to prevent unwanted credit usage
+  const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<string>('');
 
   const handleGenerate = async () => {
     if (!lead) return;
@@ -34,10 +34,20 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({ lead, analysis, onClo
 
     setIsGenerating(true);
     setGeneratedScript('');
-    const script = await generateLeadScript(lead, { type: scriptType, tone, analysis });
-    setGeneratedScript(script);
-    setIsGenerating(false);
-    setHasGenerated(true);
+    
+    try {
+       const selectedDoc = knowledgeDocs.find(d => d.id === selectedKnowledgeId);
+       const knowledgeContext = selectedDoc ? selectedDoc.content : undefined;
+
+       // Using the Router to support 3rd party LLMs
+       const script = await generateScriptWithRouter(lead, { type: scriptType, tone, analysis, knowledgeContext });
+       setGeneratedScript(script);
+    } catch (e: any) {
+       setGeneratedScript(`Error: ${e.message}`);
+    } finally {
+       setIsGenerating(false);
+       setHasGenerated(true);
+    }
   };
 
   const handleCopy = () => {
@@ -49,22 +59,22 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({ lead, analysis, onClo
   if (!lead) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] p-4 backdrop-blur-xl">
-      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-[#000000]/40 flex items-center justify-center z-[60] p-4 backdrop-blur-sm transition-all">
+      <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-[#e3e3e3]">
         
         {/* Header */}
-        <div className="p-8 border-b border-slate-100 flex justify-between items-start bg-gradient-to-r from-sky-50 to-white">
-          <div className="flex gap-4">
-             <div className="w-12 h-12 bg-sky-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-sky-200">
-               <BrainCircuit size={24} />
+        <div className="p-6 border-b border-[#e0f2fe] flex justify-between items-center bg-white">
+          <div className="flex items-center gap-4">
+             <div className="w-10 h-10 bg-gradient-to-br from-[#0ea5e9] to-[#0284c7] rounded-full flex items-center justify-center text-white shadow-sm">
+               <Sparkles size={20} />
              </div>
              <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Mapx <span className="text-sky-600">Strategy Engine</span></h2>
-                <p className="text-sm text-slate-500 font-medium">Crafting pitch for <span className="text-sky-600 font-bold">{lead.name}</span></p>
+                <h2 className="text-xl font-medium text-[#1f1f1f]">Pitch Generator</h2>
+                <p className="text-xs text-[#444746]">Drafting for <span className="font-bold">{lead.name}</span></p>
              </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-sky-100 rounded-full transition-colors">
-            <X size={24} className="text-slate-400" />
+          <button onClick={onClose} className="p-2 hover:bg-[#f0f9ff] rounded-full transition-colors text-[#444746]">
+            <X size={24} />
           </button>
         </div>
 
@@ -72,106 +82,123 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({ lead, analysis, onClo
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
             
             {/* Sidebar with Research Context */}
-            <div className="w-full lg:w-72 bg-slate-50 border-r border-slate-100 p-6 space-y-6 overflow-y-auto hidden lg:block">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strategy Context</h3>
+            <div className="w-full lg:w-80 bg-[#f0f9ff] border-r border-[#e0f2fe] p-6 space-y-6 overflow-y-auto hidden lg:block">
+                <h3 className="text-xs font-medium text-[#444746] uppercase tracking-wider">Context & Insights</h3>
                 {analysis ? (
                     <div className="space-y-4">
-                        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
-                            <span className="text-[10px] font-black text-sky-500 uppercase block mb-1">Detected Pain</span>
-                            <p className="text-xs font-bold text-slate-700 leading-tight">{analysis.painPoints[0]}</p>
+                        <div className="p-4 bg-white rounded-2xl border border-[#e0f2fe] shadow-sm">
+                            <span className="text-xs font-bold text-[#0ea5e9] mb-2 block flex items-center gap-1">
+                               <MessageSquare size={12} /> Pain Point
+                            </span>
+                            <p className="text-sm text-[#1f1f1f] font-medium leading-snug">{analysis.painPoints[0]}</p>
                         </div>
-                        <div className="p-3 bg-sky-600 rounded-xl text-white shadow-md">
-                            <span className="text-[10px] font-black opacity-60 uppercase block mb-1">Projected ROI</span>
-                            <p className="text-sm font-black">{analysis.roiPotential.estimatedIncrease}</p>
+                        <div className="p-4 bg-[#e0f2fe] rounded-2xl border border-transparent">
+                            <span className="text-xs font-bold text-[#0284c7] mb-2 block uppercase tracking-wider">Projected Lift</span>
+                            <p className="text-3xl font-normal text-[#1f1f1f]">{analysis.roiPotential.estimatedIncrease}</p>
                         </div>
-                        <p className="text-[10px] text-slate-400 italic">Script generated using PAS framework + Mapx sentiment audit.</p>
+                        <div className="p-3 rounded-xl bg-white border border-[#e0f2fe]">
+                           <p className="text-xs text-[#444746] italic">AI is using this data to ground the pitch in reality, not fluff.</p>
+                        </div>
                     </div>
                 ) : (
-                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
-                        <p className="text-[10px] font-bold text-amber-700 uppercase">Audit Not Performed</p>
-                        <p className="text-[10px] text-amber-600 mt-1">Perform a "Deep Audit" first to unlock ROI-based hyper-personalization.</p>
+                    <div className="p-4 bg-[#fff8e1] rounded-2xl border border-[#ffe082]">
+                        <p className="text-xs font-bold text-[#b06000] uppercase tracking-wider mb-1">No Audit Data</p>
+                        <p className="text-sm text-[#444746]">Run a Deep Research audit first to unlock ROI-based personalization.</p>
                     </div>
                 )}
             </div>
 
             {/* Main Script Pane */}
             <div className="flex-1 flex flex-col bg-white">
-                <div className="p-4 border-b border-slate-100 flex items-center gap-3 justify-between">
-                    <div className="flex gap-3">
-                      <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="p-4 border-b border-[#e0f2fe] flex flex-wrap items-center gap-3">
+                      <div className="flex bg-[#f0f9ff] p-1 rounded-full border border-[#e0f2fe]">
                           {(['cold_email', 'cold_call', 'whatsapp'] as const).map(type => (
                               <button
                                   key={type}
                                   onClick={() => setScriptType(type)}
-                                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${scriptType === type ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                  className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${scriptType === type ? 'bg-white text-[#0ea5e9] shadow-sm' : 'text-[#444746] hover:text-[#1f1f1f]'}`}
                               >
                                   {type.replace('_', ' ')}
                               </button>
                           ))}
                       </div>
+                      <div className="h-6 w-px bg-[#e0f2fe] mx-1"></div>
                       <select 
                           value={tone}
                           onChange={(e) => setTone(e.target.value as any)}
-                          className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 outline-none hover:border-sky-300 transition-colors"
+                          className="px-4 py-1.5 rounded-full bg-white border border-[#747775] text-xs font-medium text-[#1f1f1f] outline-none hover:bg-[#f0f9ff] focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] transition-colors cursor-pointer"
                       >
-                          <option value="professional">Professional</option>
-                          <option value="casual">Casual</option>
-                          <option value="urgent">Urgent</option>
+                          <option value="professional">Professional Tone</option>
+                          <option value="casual">Casual Tone</option>
+                          <option value="urgent">Urgent Tone</option>
                       </select>
-                    </div>
+                      <div className="h-6 w-px bg-[#e0f2fe] mx-1"></div>
+                      <select 
+                          value={selectedKnowledgeId}
+                          onChange={(e) => setSelectedKnowledgeId(e.target.value)}
+                          className="px-4 py-1.5 rounded-full bg-white border border-[#747775] text-xs font-medium text-[#1f1f1f] outline-none hover:bg-[#f0f9ff] focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] transition-colors cursor-pointer max-w-[200px] truncate"
+                      >
+                          <option value="">-- No Knowledge Base --</option>
+                          {knowledgeDocs.map(doc => (
+                            <option key={doc.id} value={doc.id}>{doc.title}</option>
+                          ))}
+                      </select>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 relative flex flex-col">
                     {!hasGenerated && !isGenerating ? (
                        <div className="flex-1 flex flex-col items-center justify-center text-center opacity-60">
-                          <BrainCircuit size={48} className="text-slate-300 mb-4" />
-                          <p className="text-slate-400 font-medium max-w-xs">Ready to generate a high-converting {scriptType.replace('_', ' ')} using Mapx AI.</p>
+                          <div className="w-16 h-16 bg-[#f0f9ff] rounded-full flex items-center justify-center mb-4 text-[#444746]">
+                            <Sparkles size={32} />
+                          </div>
+                          <p className="text-[#1f1f1f] font-medium text-lg">Draft your outreach</p>
+                          <p className="text-[#444746] text-sm max-w-xs mt-2">Select a format and tone above, then click generate.</p>
                        </div>
                     ) : isGenerating ? (
-                        <div className="space-y-6">
-                            <div className="h-4 bg-slate-100 rounded-full w-3/4 animate-pulse"></div>
-                            <div className="h-4 bg-slate-100 rounded-full w-full animate-pulse"></div>
-                            <div className="h-4 bg-slate-100 rounded-full w-5/6 animate-pulse"></div>
-                            <div className="h-4 bg-slate-100 rounded-full w-1/2 animate-pulse"></div>
+                        <div className="space-y-6 max-w-2xl mx-auto w-full pt-12">
+                            <div className="h-4 bg-gradient-to-r from-[#e0f2fe] via-[#f0f9ff] to-[#e0f2fe] rounded-full w-3/4 animate-pulse"></div>
+                            <div className="h-4 bg-gradient-to-r from-[#e0f2fe] via-[#f0f9ff] to-[#e0f2fe] rounded-full w-full animate-pulse"></div>
+                            <div className="h-4 bg-gradient-to-r from-[#e0f2fe] via-[#f0f9ff] to-[#e0f2fe] rounded-full w-5/6 animate-pulse"></div>
+                            <div className="h-4 bg-gradient-to-r from-[#e0f2fe] via-[#f0f9ff] to-[#e0f2fe] rounded-full w-1/2 animate-pulse"></div>
                         </div>
                     ) : (
-                        <div className="prose prose-slate max-w-none">
-                            <div className="flex items-center gap-2 mb-6 p-2 bg-sky-50 rounded-lg w-fit">
-                                <Sparkles size={14} className="text-sky-600" />
-                                <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest">Mapx Draft Ready</span>
+                        <div className="max-w-3xl mx-auto w-full">
+                            <div className="prose prose-slate max-w-none">
+                                <pre className="whitespace-pre-wrap font-sans text-[#1f1f1f] text-base leading-relaxed p-6 rounded-xl border border-transparent hover:border-[#e0f2fe] transition-colors">
+                                    {generatedScript}
+                                </pre>
                             </div>
-                            <pre className="whitespace-pre-wrap font-sans text-slate-800 text-lg leading-relaxed font-medium">
-                                {generatedScript}
-                            </pre>
                         </div>
                     )}
                 </div>
 
-                <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-                   <div className="text-xs font-medium text-slate-500">
-                      Balance: <span className="font-bold text-slate-900">{credits} Credits</span>
+                <div className="p-6 border-t border-[#e0f2fe] bg-white flex justify-between items-center">
+                   <div className="flex items-center gap-2 text-xs font-medium text-[#444746] bg-[#f0f9ff] px-3 py-1.5 rounded-full">
+                      <Zap size={12} className={credits < 10 ? "text-[#b3261e]" : "text-[#0ea5e9]"} />
+                      <span>{credits} Credits available</span>
                    </div>
                    <div className="flex gap-3">
                       {hasGenerated ? (
                          <>
-                           <button onClick={handleGenerate} className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-sky-600 hover:bg-sky-100 rounded-xl transition-all uppercase tracking-widest flex items-center gap-2">
-                               Regenerate <span className="text-[10px] opacity-60 bg-slate-200 px-1.5 py-0.5 rounded">-{COST_SCRIPT}</span>
+                           <button onClick={handleGenerate} className="px-6 py-2.5 text-sm font-medium text-[#0ea5e9] hover:bg-[#f0f9ff] rounded-full transition-all flex items-center gap-2">
+                               <RefreshCw size={16} />
+                               Regenerate
                            </button>
                            <button
                                 onClick={handleCopy}
-                                className="flex items-center gap-2 px-8 py-3 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-all shadow-lg active:scale-95 font-black text-sm uppercase tracking-widest"
+                                className="flex items-center gap-2 px-6 py-2.5 bg-[#0ea5e9] text-white rounded-full hover:bg-[#0ea5e9]/90 transition-all shadow-sm active:shadow-none font-medium text-sm"
                             >
                                 {copied ? <Check size={18} /> : <Copy size={18} />}
-                                {copied ? 'Copied' : 'Copy Pitch'}
+                                {copied ? 'Copied' : 'Copy Text'}
                             </button>
                          </>
                       ) : (
                          <button 
                            onClick={handleGenerate}
-                           className="flex items-center gap-2 px-8 py-3 bg-sky-600 text-white rounded-xl hover:bg-sky-700 transition-all shadow-lg active:scale-95 font-black text-sm uppercase tracking-widest group"
+                           className="flex items-center gap-2 px-8 py-3 bg-[#0ea5e9] text-white rounded-full hover:bg-[#0ea5e9]/90 transition-all shadow-sm active:shadow-none font-medium text-sm"
                          >
-                            <Zap size={16} className="text-yellow-300 group-hover:text-yellow-200" />
-                            Generate Pitch <span className="opacity-80 font-medium normal-case ml-1">({COST_SCRIPT} Credits)</span>
+                            <Sparkles size={18} />
+                            Generate Draft <span className="opacity-70 text-xs ml-1">(-{COST_SCRIPT})</span>
                          </button>
                       )}
                    </div>

@@ -1,16 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Lead } from '../types';
-import { Phone, Globe, MapPin, Star, FileText, Mail, Facebook, Linkedin, Instagram, Twitter, Youtube, Eye, MessageSquare, ExternalLink } from 'lucide-react';
+import { Phone, Globe, MapPin, Star, FileText, Mail, Eye, ExternalLink, BookmarkPlus, Check, ShieldCheck, AlertCircle, Database, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 
 interface LeadTableProps {
   leads: Lead[];
   onGenerateScript: (lead: Lead) => void;
   onResearch: (lead: Lead) => void;
+  onSaveContact?: (lead: Lead) => void;
+  savedContactIds?: string[];
   isLoading: boolean;
 }
 
-const LeadTable: React.FC<LeadTableProps> = ({ leads, onGenerateScript, onResearch, isLoading }) => {
+const ITEMS_PER_PAGE = 10;
+
+const LeadTable: React.FC<LeadTableProps> = React.memo(({ leads, onGenerateScript, onResearch, onSaveContact, savedContactIds = [], isLoading }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+
   const formatUrl = (url: string | null) => {
     if (!url) return null;
     let formatted = url.trim();
@@ -20,131 +26,138 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onGenerateScript, onResear
     return formatted;
   };
 
+  const getSourceIcon = (source?: string) => {
+      switch(source) {
+          case 'apollo': return <div className="w-4 h-4 bg-blue-100 text-blue-600 rounded flex items-center justify-center text-[8px] font-bold" title="Sourced from Apollo">A</div>;
+          case 'hunter': return <div className="w-4 h-4 bg-orange-100 text-orange-600 rounded flex items-center justify-center text-[8px] font-bold" title="Sourced from Hunter">H</div>;
+          case 'ai_inferred': return <div className="w-4 h-4 bg-purple-100 text-purple-600 rounded flex items-center justify-center text-[8px] font-bold" title="Inferred by AI (Risky)">AI</div>;
+          default: return <div title="Unknown Source"><Database size={12} className="text-gray-400" /></div>;
+      }
+  };
+
   if (isLoading) {
     return (
-      <div className="w-full h-64 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-sky-600"></div>
-          <p className="text-slate-500 animate-pulse font-medium">Mapx is scanning GMB profiles...</p>
-        </div>
+      <div className="w-full py-12 flex flex-col items-center justify-center gap-3">
+         <div className="w-10 h-10 border-4 border-[#e0f2fe] border-t-[#0ea5e9] rounded-full animate-spin"></div>
+         <p className="text-sm text-[#444746] font-medium">Loading results...</p>
       </div>
     );
   }
 
   if (leads.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-lg border border-slate-200 border-dashed">
-        <MapPin className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-        <h3 className="text-lg font-medium text-slate-900">No leads found yet</h3>
-        <p className="text-slate-500 mt-1">Select an industry and area to start scouting.</p>
+      <div className="text-center py-16 bg-white rounded-[24px] border border-[#e0f2fe]">
+        <div className="w-16 h-16 bg-[#f0f9ff] rounded-full flex items-center justify-center mx-auto mb-4">
+           <MapPin className="h-8 w-8 text-[#444746]" />
+        </div>
+        <h3 className="text-lg font-medium text-[#1f1f1f]">No leads found yet</h3>
+        <p className="text-[#444746] mt-1 text-sm">Select an industry and area above to start scouting.</p>
       </div>
     );
   }
 
+  // Pagination Logic
+  const totalPages = Math.ceil(leads.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const currentLeads = leads.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handleNextPage = () => setCurrentPage(p => Math.min(p + 1, totalPages));
+  const handlePrevPage = () => setCurrentPage(p => Math.max(p - 1, 1));
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
+    <div className="bg-white rounded-[24px] border border-[#e0f2fe] overflow-hidden shadow-sm animate-in fade-in duration-500">
+      
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="min-w-full divide-y divide-[#e0f2fe]">
+          <thead className="bg-white">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Business</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">GMB Stats</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Contact & Socials</th>
-              <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest">Actions</th>
+              <th className="px-6 py-4 text-left text-xs font-medium text-[#444746] tracking-wide">Business</th>
+              <th className="px-6 py-4 text-left text-xs font-medium text-[#444746] tracking-wide">Reputation</th>
+              <th className="px-6 py-4 text-left text-xs font-medium text-[#444746] tracking-wide">Contact Data</th>
+              <th className="px-6 py-4 text-right text-xs font-medium text-[#444746] tracking-wide">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
-            {leads.map((lead) => {
+          <tbody className="bg-white divide-y divide-[#e0f2fe]">
+            {currentLeads.map((lead) => {
               const websiteUrl = formatUrl(lead.website);
+              const isSaved = savedContactIds.includes(lead.id);
+
               return (
-                <tr key={lead.id} className="hover:bg-sky-50/30 transition-colors">
+                <tr key={lead.id} className="hover:bg-[#f0f9ff] transition-colors group">
                   <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-900">{lead.name}</span>
-                      <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 font-medium">
-                        <MapPin size={10} className="shrink-0" /> {lead.address}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#e0f2fe] text-[#0284c7] flex items-center justify-center text-sm font-bold shrink-0">
+                        {lead.name.charAt(0)}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-[#1f1f1f]">{lead.name}</span>
+                        <span className="text-xs text-[#444746]">{lead.category}</span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex text-amber-400">
-                           <Star size={12} fill="currentColor" />
-                        </div>
-                        <span className="text-sm font-bold text-slate-700">{lead.rating || 'N/A'}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                        <MessageSquare size={10} /> {lead.reviewCount || 0} Reviews
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-[#1f1f1f]">{lead.rating || '-'}</span>
+                      <Star size={14} className={lead.rating ? "fill-[#FBBC05] text-[#FBBC05]" : "text-[#e3e3e3]"} />
+                      <span className="text-xs text-[#444746]">({lead.reviewCount})</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex flex-col gap-0.5">
-                        {lead.email && (
-                          <div className="flex items-center gap-2 text-xs text-sky-600 font-bold">
-                            <Mail size={12} /> {lead.email}
-                          </div>
+                    <div className="flex flex-col gap-1.5">
+                        {lead.email ? (
+                            <div className="flex items-center gap-2">
+                                {lead.emailStatus === 'verified' ? (
+                                    <div title="Verified Email"><ShieldCheck size={14} className="text-green-600" /></div>
+                                ) : lead.emailStatus === 'risky' ? (
+                                    <div title="Risky/Catch-all"><AlertCircle size={14} className="text-amber-500" /></div>
+                                ) : (
+                                    <Mail size={14} className="text-[#444746]" />
+                                )}
+                                <span className={`text-xs ${lead.emailStatus === 'verified' ? 'text-green-700 font-medium' : 'text-[#444746]'}`}>{lead.email}</span>
+                                {getSourceIcon(lead.emailSource)}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-xs text-[#444746] opacity-60">
+                                <Mail size={14} /> No Email Found
+                            </div>
                         )}
-                        {lead.phone && (
-                          <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                            <Phone size={12} /> {lead.phone}
-                          </div>
+
+                        {websiteUrl && (
+                          <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-[#0ea5e9] hover:underline">
+                            <Globe size={12} /> Website
+                          </a>
                         )}
-                      </div>
-
-                      {websiteUrl && (
-                        <a 
-                          href={websiteUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="flex items-center gap-1.5 text-[11px] font-bold text-sky-600 hover:text-sky-800 underline decoration-sky-200"
-                        >
-                          <Globe size={12} />
-                          Visit Website
-                        </a>
-                      )}
-
-                      {/* Social Icons Row */}
-                      {lead.socials && Object.keys(lead.socials).length > 0 && (
-                        <div className="flex items-center gap-2.5 mt-1">
-                          {lead.socials.facebook && (
-                            <a href={formatUrl(lead.socials.facebook)!} target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-sky-600 transition-colors">
-                              <Facebook size={14} />
-                            </a>
-                          )}
-                          {lead.socials.instagram && (
-                            <a href={formatUrl(lead.socials.instagram)!} target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-sky-600 transition-colors">
-                              <Instagram size={14} />
-                            </a>
-                          )}
-                          {lead.socials.linkedin && (
-                            <a href={formatUrl(lead.socials.linkedin)!} target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-sky-600 transition-colors">
-                              <Linkedin size={14} />
-                            </a>
-                          )}
-                          {lead.socials.twitter && (
-                            <a href={formatUrl(lead.socials.twitter)!} target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-sky-600 transition-colors">
-                              <Twitter size={14} />
-                            </a>
-                          )}
-                          {lead.socials.youtube && (
-                            <a href={formatUrl(lead.socials.youtube)!} target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-sky-600 transition-colors">
-                              <Youtube size={14} />
-                            </a>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => onResearch(lead)} className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Deep Audit">
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {onSaveContact && (
+                        <button
+                          onClick={() => !isSaved && onSaveContact(lead)}
+                          disabled={isSaved}
+                          className={`p-2 rounded-full transition-colors ${
+                            isSaved 
+                            ? 'text-[#188038] bg-green-50' 
+                            : 'text-[#444746] hover:text-[#0ea5e9] hover:bg-[#0ea5e9]/10'
+                          }`}
+                          title={isSaved ? "Saved to Contacts" : "Save to Contacts"}
+                        >
+                          {isSaved ? <Check size={18} /> : <BookmarkPlus size={18} />}
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => onResearch(lead)} 
+                        className="p-2 text-[#444746] hover:text-[#0ea5e9] hover:bg-[#0ea5e9]/10 rounded-full transition-colors" 
+                        title="View Details"
+                      >
                         <Eye size={18} />
                       </button>
-                      <button onClick={() => onGenerateScript(lead)} className="flex items-center gap-2 px-3 py-1.5 bg-sky-600 text-white text-xs font-black rounded-lg hover:bg-sky-700 transition-all shadow-md active:scale-95 uppercase tracking-widest">
-                        <FileText size={14} /> Script
+                      <button 
+                        onClick={() => onGenerateScript(lead)} 
+                        className="flex items-center gap-2 px-4 py-1.5 bg-[#e0f2fe] text-[#0284c7] text-xs font-medium rounded-full hover:shadow-md transition-all"
+                      >
+                        <FileText size={14} /> Pitch
                       </button>
                     </div>
                   </td>
@@ -154,8 +167,100 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onGenerateScript, onResear
           </tbody>
         </table>
       </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden">
+          {currentLeads.map((lead) => {
+              const websiteUrl = formatUrl(lead.website);
+              const isSaved = savedContactIds.includes(lead.id);
+              
+              return (
+                  <div key={lead.id} className="p-4 border-b border-[#e0f2fe] hover:bg-[#f0f9ff]">
+                      <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-[#e0f2fe] text-[#0284c7] flex items-center justify-center text-sm font-bold shrink-0">
+                                  {lead.name.charAt(0)}
+                              </div>
+                              <div>
+                                  <h4 className="font-medium text-[#1f1f1f] text-sm">{lead.name}</h4>
+                                  <span className="text-xs text-[#444746]">{lead.category}</span>
+                              </div>
+                          </div>
+                          <div className="flex items-center gap-1 bg-[#f0f9ff] px-2 py-1 rounded text-xs">
+                              <span className="font-bold text-[#1f1f1f]">{lead.rating || '-'}</span>
+                              <Star size={10} className="fill-[#FBBC05] text-[#FBBC05]" />
+                          </div>
+                      </div>
+                      
+                      <div className="space-y-2 mb-4">
+                          {lead.email && (
+                              <div className="flex items-center gap-2 text-xs text-[#444746]">
+                                  <Mail size={12} /> {lead.email}
+                              </div>
+                          )}
+                          {websiteUrl && (
+                              <a href={websiteUrl} className="flex items-center gap-2 text-xs text-[#0ea5e9]">
+                                  <Globe size={12} /> Visit Website
+                              </a>
+                          )}
+                      </div>
+
+                      <div className="flex gap-2">
+                          <button 
+                            onClick={() => onGenerateScript(lead)} 
+                            className="flex-1 py-2 bg-[#e0f2fe] text-[#0284c7] text-xs font-medium rounded-lg text-center"
+                          >
+                            Generate Pitch
+                          </button>
+                          <button 
+                            onClick={() => onResearch(lead)} 
+                            className="p-2 border border-[#e0f2fe] rounded-lg text-[#444746]"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          {onSaveContact && (
+                            <button
+                              onClick={() => !isSaved && onSaveContact(lead)}
+                              disabled={isSaved}
+                              className={`p-2 rounded-lg border ${
+                                isSaved ? 'bg-green-50 text-green-700 border-green-100' : 'border-[#e0f2fe] text-[#444746]'
+                              }`}
+                            >
+                              {isSaved ? <Check size={16} /> : <BookmarkPlus size={16} />}
+                            </button>
+                          )}
+                      </div>
+                  </div>
+              );
+          })}
+      </div>
+
+      {/* Pagination Controls */}
+      {leads.length > ITEMS_PER_PAGE && (
+          <div className="p-4 border-t border-[#e0f2fe] bg-[#f8fafc] flex justify-between items-center">
+              <span className="text-xs text-[#444746]">
+                  Page {currentPage} of {totalPages}
+              </span>
+              <div className="flex gap-2">
+                  <button 
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className="p-2 bg-white border border-[#e0f2fe] rounded-lg text-[#444746] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f9ff]"
+                  >
+                      <ChevronLeft size={16} />
+                  </button>
+                  <button 
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="p-2 bg-white border border-[#e0f2fe] rounded-lg text-[#444746] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f9ff]"
+                  >
+                      <ChevronRight size={16} />
+                  </button>
+              </div>
+          </div>
+      )}
     </div>
   );
-};
+});
 
 export default LeadTable;

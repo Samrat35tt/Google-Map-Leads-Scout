@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Lead, LeadAnalysis } from '../types';
-import { X, Globe, ThumbsUp, ThumbsDown, AlertCircle, Sparkles, Search, TrendingUp, MessageCircle, Lightbulb, Facebook, Instagram, Linkedin, Twitter, Youtube, ExternalLink, Navigation } from 'lucide-react';
+import { X, Globe, ThumbsUp, ThumbsDown, AlertCircle, Sparkles, Search, TrendingUp, MessageCircle, Lightbulb, Facebook, Instagram, Linkedin, Twitter, Youtube, ExternalLink, Navigation, Cpu } from 'lucide-react';
 
 interface LeadResearchModalProps {
   lead: Lead;
@@ -21,87 +21,120 @@ const LeadResearchModal: React.FC<LeadResearchModalProps> = ({ lead, analysis, i
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-md">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 bg-[#000000]/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div className="bg-[#f0f9ff] rounded-[28px] shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 border border-[#e0f2fe]">
         
         {/* Header */}
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-sky-50 to-white">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-sky-100 rounded-2xl flex items-center justify-center text-sky-600 shadow-inner">
+        <div className="px-8 py-6 border-b border-[#e0f2fe] flex justify-between items-center bg-white">
+          <div className="flex items-center gap-5">
+            <div className="w-12 h-12 bg-[#e0f2fe] rounded-full flex items-center justify-center text-[#0ea5e9]">
               <Search size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{lead.name}</h2>
-              <p className="text-xs text-sky-500 font-bold uppercase tracking-widest">{lead.address}</p>
+              <h2 className="text-2xl font-normal text-[#1f1f1f]">{lead.name}</h2>
+              <div className="flex items-center gap-2 text-sm text-[#444746] mt-0.5">
+                 <span className="font-medium bg-[#f0f9ff] px-2 py-0.5 rounded text-xs">{lead.category}</span>
+                 <span>•</span>
+                 <span>{lead.address}</span>
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-sky-50 rounded-full transition-colors">
-            <X size={24} className="text-slate-400 hover:text-sky-500" />
+          <button onClick={onClose} className="p-2 hover:bg-[#f0f9ff] rounded-full transition-colors text-[#444746]">
+            <X size={24} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/30">
+        <div className="flex-1 overflow-y-auto p-8">
           
           {isLoading ? (
-            <div className="h-64 flex flex-col items-center justify-center space-y-4">
-               <div className="w-12 h-12 border-4 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
-               <p className="text-slate-600 font-bold animate-pulse uppercase tracking-widest text-[10px]">Mapx is auditing sentiment & ROI data...</p>
+            <div className="h-full flex flex-col items-center justify-center space-y-6 min-h-[400px]">
+               <div className="relative">
+                 <div className="w-16 h-16 border-4 border-[#e0f2fe] border-t-[#0ea5e9] rounded-full animate-spin"></div>
+                 <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles size={20} className="text-[#0ea5e9]" />
+                 </div>
+               </div>
+               <p className="text-[#1f1f1f] font-medium text-lg">Analyzing digital footprint...</p>
+               <p className="text-[#444746] text-sm">Reviewing GMB, social signals, and tech stack</p>
             </div>
           ) : analysis ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Main Column */}
-              <div className="lg:col-span-2 space-y-8">
+              <div className="lg:col-span-2 space-y-6">
                 
                 {/* Executive Summary */}
-                <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                <section className="bg-white p-6 rounded-[24px] border border-[#e0f2fe] shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="text-sky-500" size={20} />
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Market Position</h3>
+                    <Sparkles className="text-[#0ea5e9]" size={20} />
+                    <h3 className="text-sm font-medium text-[#1f1f1f]">Executive Summary</h3>
                   </div>
-                  <p className="text-slate-700 leading-relaxed font-medium">{analysis.overview}</p>
+                  <p className="text-[#444746] leading-relaxed text-base">{analysis.overview}</p>
+                </section>
+
+                {/* Tech Stack Detection */}
+                <section className="bg-white p-6 rounded-[24px] border border-[#e0f2fe] shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Cpu className="text-[#0ea5e9]" size={20} />
+                    <h3 className="text-sm font-medium text-[#1f1f1f]">Technology Stack</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.techStack && analysis.techStack.length > 0 ? (
+                      analysis.techStack.map((tech, i) => (
+                        <span key={i} className="px-3 py-1.5 bg-[#f0f9ff] border border-[#e0f2fe] text-[#0284c7] rounded-lg text-xs font-medium flex items-center gap-1">
+                           {tech}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-sm text-[#444746] italic">No specific technologies detected.</p>
+                    )}
+                  </div>
                 </section>
 
                 {/* GMB Review Summary */}
-                <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                <section className="bg-white p-6 rounded-[24px] border border-[#e0f2fe] shadow-sm">
                    <div className="flex items-center gap-2 mb-4">
-                    <MessageCircle className="text-sky-500" size={20} />
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Mapx Sentiment Audit</h3>
+                    <MessageCircle className="text-[#0ea5e9]" size={20} />
+                    <h3 className="text-sm font-medium text-[#1f1f1f]">Sentiment Audit</h3>
                   </div>
-                  <div className="bg-sky-50/50 p-4 rounded-xl border border-sky-100 mb-6 italic text-slate-700 text-sm font-medium border-l-4 border-l-sky-500">
-                    "{analysis.reputation.reviewSummary}"
+                  <div className="bg-[#f0f9ff] p-5 rounded-2xl mb-6 text-[#1f1f1f] text-sm leading-relaxed relative">
+                    <span className="absolute top-4 left-4 text-[#0ea5e9] text-2xl font-serif">"</span>
+                    <p className="pl-6">{analysis.reputation.reviewSummary}</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Core Wins</span>
-                      {analysis.reputation.keyPraises.map((p, i) => (
-                        <div key={i} className="flex items-start gap-2 text-xs font-bold text-slate-600">
-                          <ThumbsUp size={12} className="text-emerald-500 mt-0.5 shrink-0" /> {p}
-                        </div>
-                      ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <span className="text-xs font-bold text-[#188038] uppercase tracking-wider mb-3 block">Positives</span>
+                      <div className="space-y-2">
+                        {analysis.reputation.keyPraises.map((p, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm text-[#444746]">
+                            <ThumbsUp size={14} className="text-[#188038] mt-1 shrink-0" /> {p}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-3">
-                      <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Critical Friction</span>
-                      {analysis.reputation.keyComplaints.map((c, i) => (
-                        <div key={i} className="flex items-start gap-2 text-xs font-bold text-slate-600">
-                          <ThumbsDown size={12} className="text-rose-500 mt-0.5 shrink-0" /> {c}
-                        </div>
-                      ))}
+                    <div>
+                      <span className="text-xs font-bold text-[#b3261e] uppercase tracking-wider mb-3 block">Complaints</span>
+                      <div className="space-y-2">
+                        {analysis.reputation.keyComplaints.map((c, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm text-[#444746]">
+                            <ThumbsDown size={14} className="text-[#b3261e] mt-1 shrink-0" /> {c}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </section>
 
                 {/* Pain Point Detection */}
-                <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                <section className="bg-white p-6 rounded-[24px] border border-[#e0f2fe] shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
-                    <AlertCircle className="text-rose-500" size={20} />
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Vulnerability Score</h3>
+                    <AlertCircle className="text-[#b3261e]" size={20} />
+                    <h3 className="text-sm font-medium text-[#1f1f1f]">Detected Friction</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex flex-wrap gap-3">
                     {analysis.painPoints.map((pain, i) => (
-                      <div key={i} className="p-3 bg-rose-50 rounded-xl border border-rose-100 text-[11px] font-bold text-rose-700 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
+                      <div key={i} className="px-4 py-2 bg-[#fce8e6] rounded-full border border-[#f9dedc] text-sm font-medium text-[#b3261e] flex items-center gap-2">
                         {pain}
                       </div>
                     ))}
@@ -110,10 +143,10 @@ const LeadResearchModal: React.FC<LeadResearchModalProps> = ({ lead, analysis, i
 
                 {/* Grounding Sources */}
                 {analysis.groundingChunks && analysis.groundingChunks.length > 0 && (
-                  <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                  <section className="bg-white p-6 rounded-[24px] border border-[#e0f2fe] shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
-                      <Navigation className="text-sky-500" size={20} />
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Evidence Sources</h3>
+                      <Navigation className="text-[#0ea5e9]" size={20} />
+                      <h3 className="text-sm font-medium text-[#1f1f1f]">Verified Sources</h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {analysis.groundingChunks.map((chunk, i) => {
@@ -125,9 +158,9 @@ const LeadResearchModal: React.FC<LeadResearchModalProps> = ({ lead, analysis, i
                             href={source.uri} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-100 hover:border-sky-200 rounded-lg text-[10px] font-bold text-slate-600 hover:text-sky-600 transition-all"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#c4c7c5] hover:bg-[#f0f9ff] rounded-lg text-xs font-medium text-[#0ea5e9] transition-colors"
                           >
-                            <ExternalLink size={10} />
+                            <ExternalLink size={12} />
                             {source.title || 'Source'}
                           </a>
                         );
@@ -138,44 +171,48 @@ const LeadResearchModal: React.FC<LeadResearchModalProps> = ({ lead, analysis, i
               </div>
 
               {/* Sidebar Column */}
-              <div className="space-y-8">
+              <div className="space-y-6">
                 
                 {/* ROI Potential */}
-                <section className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl shadow-sky-200/20 relative overflow-hidden">
+                <section className="bg-[#0ea5e9] text-white p-8 rounded-[24px] shadow-md relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <TrendingUp size={80} />
+                    <TrendingUp size={100} />
                   </div>
-                  <h3 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-2">Growth Lift</h3>
-                  <div className="text-5xl font-black mb-4 tracking-tighter">{analysis.roiPotential.estimatedIncrease}</div>
-                  <p className="text-[11px] text-sky-100/70 leading-relaxed font-medium">{analysis.roiPotential.logic}</p>
+                  <h3 className="text-xs font-bold text-[#e0f2fe] uppercase tracking-wider mb-2">Estimated Growth</h3>
+                  <div className="text-5xl font-normal mb-4">{analysis.roiPotential.estimatedIncrease}</div>
+                  <p className="text-sm text-[#f0f9ff] leading-relaxed opacity-90">{analysis.roiPotential.logic}</p>
                 </section>
 
                 {/* Connect & Verify Section */}
-                <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Connect & Verify</h3>
-                   <div className="space-y-3">
+                <section className="bg-white p-6 rounded-[24px] border border-[#e0f2fe] shadow-sm">
+                   <h3 className="text-xs font-bold text-[#444746] uppercase tracking-wider mb-4">Contact Info</h3>
+                   <div className="space-y-2">
                       {lead.website && (
-                        <a href={formatUrl(lead.website)!} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-sky-300 transition-all group">
-                          <div className="flex items-center gap-2">
-                            <Globe size={14} className="text-sky-600" />
-                            <span className="text-[11px] font-bold text-slate-700">Official Website</span>
+                        <a href={formatUrl(lead.website)!} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f0f9ff] transition-all group">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#e0f2fe] flex items-center justify-center text-[#0ea5e9]">
+                                <Globe size={16} />
+                            </div>
+                            <span className="text-sm font-medium text-[#1f1f1f]">Website</span>
                           </div>
-                          <ExternalLink size={12} className="text-slate-300 group-hover:text-sky-500" />
+                          <ExternalLink size={14} className="text-[#e3e3e3] group-hover:text-[#0ea5e9]" />
                         </a>
                       )}
                       
                       {lead.socials && Object.entries(lead.socials).map(([platform, url]) => (
                         url && (
-                          <a key={platform} href={formatUrl(url as string)!} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-sky-300 transition-all group">
-                            <div className="flex items-center gap-2">
-                              {platform === 'facebook' && <Facebook size={14} className="text-[#1877F2]" />}
-                              {platform === 'instagram' && <Instagram size={14} className="text-[#E4405F]" />}
-                              {platform === 'linkedin' && <Linkedin size={14} className="text-[#0A66C2]" />}
-                              {platform === 'twitter' && <Twitter size={14} className="text-[#1DA1F2]" />}
-                              {platform === 'youtube' && <Youtube size={14} className="text-[#FF0000]" />}
-                              <span className="text-[11px] font-bold text-slate-700 capitalize">{platform}</span>
+                          <a key={platform} href={formatUrl(url as string)!} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f0f9ff] transition-all group">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#f0f9ff] flex items-center justify-center text-[#444746]">
+                                {platform === 'facebook' && <Facebook size={16} />}
+                                {platform === 'instagram' && <Instagram size={16} />}
+                                {platform === 'linkedin' && <Linkedin size={16} />}
+                                {platform === 'twitter' && <Twitter size={16} />}
+                                {platform === 'youtube' && <Youtube size={16} />}
+                              </div>
+                              <span className="text-sm font-medium text-[#1f1f1f] capitalize">{platform}</span>
                             </div>
-                            <ExternalLink size={12} className="text-slate-300 group-hover:text-sky-500" />
+                            <ExternalLink size={14} className="text-[#e3e3e3] group-hover:text-[#0ea5e9]" />
                           </a>
                         )
                       ))}
@@ -183,36 +220,36 @@ const LeadResearchModal: React.FC<LeadResearchModalProps> = ({ lead, analysis, i
                 </section>
 
                 {/* Channel Health */}
-                <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Channel Health</h3>
-                   <div className="space-y-4">
+                <section className="bg-white p-6 rounded-[24px] border border-[#e0f2fe] shadow-sm">
+                   <h3 className="text-xs font-bold text-[#444746] uppercase tracking-wider mb-4">Health Check</h3>
+                   <div className="space-y-6">
                       <div>
-                        <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase mb-1">
-                          <span>Web Presence</span>
-                          <span className={analysis.digitalPresence.websiteStatus === 'Strong' ? 'text-emerald-600' : 'text-amber-500'}>{analysis.digitalPresence.websiteStatus}</span>
+                        <div className="flex justify-between text-sm font-medium text-[#1f1f1f] mb-2">
+                          <span>Web Status</span>
+                          <span className={analysis.digitalPresence.websiteStatus === 'Strong' ? 'text-[#188038]' : 'text-[#ea8600]'}>{analysis.digitalPresence.websiteStatus}</span>
                         </div>
-                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${analysis.digitalPresence.websiteStatus === 'Strong' ? 'w-full bg-emerald-500' : 'w-1/2 bg-amber-500'}`}></div>
+                        <div className="h-2 bg-[#f0f9ff] rounded-full overflow-hidden">
+                          <div className={`h-full ${analysis.digitalPresence.websiteStatus === 'Strong' ? 'w-full bg-[#188038]' : 'w-1/2 bg-[#ea8600]'}`}></div>
                         </div>
                       </div>
                       <div>
-                        <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase mb-1">
-                          <span>SEO Visibility</span>
+                        <div className="flex justify-between text-sm font-medium text-[#1f1f1f] mb-2">
+                          <span>SEO</span>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-medium italic">{analysis.digitalPresence.seoHealth}</p>
+                        <p className="text-xs text-[#444746] bg-[#f0f9ff] p-3 rounded-lg">{analysis.digitalPresence.seoHealth}</p>
                       </div>
                    </div>
                 </section>
 
                 {/* Recommendation */}
-                <section className="bg-sky-600 p-6 rounded-2xl text-white shadow-lg shadow-sky-100">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Lightbulb size={18} />
-                    <h3 className="text-[10px] font-black uppercase tracking-widest">Mapx Recommendation</h3>
+                <section className="bg-[#e0f2fe] p-6 rounded-[24px] text-[#0284c7]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Lightbulb size={20} className="text-[#0284c7]" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider">Opportunity</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {analysis.suggestedServices.map((s, i) => (
-                      <span key={i} className="px-2 py-1 bg-white/20 rounded text-[10px] font-black uppercase">{s}</span>
+                      <span key={i} className="px-3 py-1 bg-white/60 rounded-full text-xs font-bold">{s}</span>
                     ))}
                   </div>
                 </section>
@@ -223,9 +260,9 @@ const LeadResearchModal: React.FC<LeadResearchModalProps> = ({ lead, analysis, i
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
-          <button onClick={onClose} className="px-8 py-3 bg-slate-900 text-white text-xs font-black rounded-xl hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-slate-200 uppercase tracking-widest">
-            CLOSE SCOUT
+        <div className="p-6 border-t border-[#e0f2fe] bg-white flex justify-end">
+          <button onClick={onClose} className="px-8 py-2.5 bg-[#1f1f1f] text-white text-sm font-medium rounded-full hover:shadow-md transition-all">
+            Close Analysis
           </button>
         </div>
       </div>
