@@ -21,7 +21,27 @@ import TaskManager from './components/TaskManager';
 import KnowledgeBase from './components/KnowledgeBase';
 import MeetingIntelligence from './components/MeetingIntelligence';
 import ComplianceModal from './components/ComplianceModal';
+import Auth from './components/Auth';
 import { DEFAULT_LLM_SETTINGS } from './services/settingsStore';
+import { supabase } from './services/supabase';
+import {
+  getProfile,
+  upsertProfile,
+  updateProfileCredits,
+  updateProfileSettings,
+  acceptCompliance,
+  getContacts,
+  upsertContact,
+  upsertContacts,
+  deleteContact,
+  getWorkflows,
+  upsertWorkflow,
+  deleteWorkflow,
+  getConversations,
+  upsertConversation,
+  getSearchLogs,
+  insertSearchLog,
+} from './services/dataService';
 import { Lead, SearchState, GroundingChunk, LeadAnalysis, AppUser, SearchLog, Workflow, Conversation, Message, KnowledgeDocument, Meeting, LLMSettings } from './types';
 import { searchLeadsWithGemini, getCitiesForCountry, getAreasForCity, analyzeLeadWithGemini } from './services/gemini';
 import { Search, AlertTriangle, Navigation, ExternalLink, Ban, LogOut, Building, LocateFixed, LogIn, Zap } from 'lucide-react';
@@ -49,17 +69,8 @@ const safeUUID = () => {
 };
 
 const AppContent = () => {
-  const [user, setUser] = useState<AppUser | null>({
-    id: 'local-user',
-    email: 'local@example.com',
-    name: 'Local User',
-    plan: 'pro',
-    credits: 10000,
-    isAdmin: true,
-    complianceAccepted: true,
-    settings: DEFAULT_LLM_SETTINGS
-  });
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [loading, setLoading] = useState(true); // true = checking Supabase session
   const [originalAdmin, setOriginalAdmin] = useState<AppUser | null>(null);
 
   // Search State
@@ -104,16 +115,99 @@ const AppContent = () => {
 
   const navigate = useNavigate();
 
+  // ---------------------------------------------------------------------------
+  // Supabase Auth — listen for session changes
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    // Check active session on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        await loadUserProfile(session.user.id, session.user.email ?? '');
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Subscribe to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await loadUserProfile(session.user.id, session.user.email ?? '');
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setContacts([]);
+          setWorkflows([]);
+          setConversations([]);
+          setSearchHistory([]);
+          setCredits(0);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadUserProfile = async (userId: string, email: string) => {
+    setLoading(true);
+    try {
+      let profile = await getProfile(userId);
+
+      // First-time sign in — create profile row
+      if (!profile) {
+        const newProfile: AppUser = {
+          id: userId,
+          email,
+          plan: 'free',
+          credits: 100,
+          isAdmin: false,
+          suspended: false,
+          complianceAccepted: false,
+          settings: DEFAULT_LLM_SETTINGS,
+        };
+        await upsertProfile(newProfile);
+        profile = newProfile;
+      }
+
+      setUser(profile);
+      setCredits(profile.credits ?? 0);
+      setSettings(profile.settings ?? DEFAULT_LLM_SETTINGS);
+
+      if (!profile.complianceAccepted) {
+        setShowComplianceModal(true);
+      }
+
+      // Load persisted data in parallel
+      const [savedContacts, savedWorkflows, savedConvs, savedLogs] = await Promise.all([
+        getContacts(userId),
+        getWorkflows(userId),
+        getConversations(userId),
+        getSearchLogs(userId),
+      ]);
+
+      setContacts(savedContacts);
+      setWorkflows(savedWorkflows);
+      setConversations(savedConvs);
+      setSearchHistory(savedLogs);
+    } catch (err) {
+      console.error('[App] loadUserProfile error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUpdateSettings = async (newSettings: LLMSettings) => {
     if (!user) return;
     setUser({ ...user, settings: newSettings });
     setSettings(newSettings);
+    await updateProfileSettings(user.id, newSettings);
   };
 
   const handleAcceptCompliance = async () => {
     if (!user) return;
     setUser({ ...user, complianceAccepted: true });
     setShowComplianceModal(false);
+    await acceptCompliance(user.id);
   };
 
   const consumeCredits = useCallback(async (amount: number): Promise<boolean> => {
@@ -122,8 +216,9 @@ const AppContent = () => {
       setShowPricing(true);
       return false;
     }
-    
-    setCredits(prev => prev - amount);
+    const newCredits = credits - amount;
+    setCredits(newCredits);
+    await updateProfileCredits(user.id, newCredits);
     return true;
   }, [credits, user]);
 
@@ -185,6 +280,7 @@ const AppContent = () => {
 
       if (user) {
         setSearchHistory(prev => [newLog, ...prev]);
+        await insertSearchLog(newLog, user.id);
       }
 
     } catch (err: any) {
@@ -224,7 +320,7 @@ const AppContent = () => {
 
     let leadToSave = { ...lead };
     if (!leadToSave.id) {
-        leadToSave.id = `lead-${Date.now()}`;
+        leadToSave.id = safeUUID();
     }
 
     setContacts(prev => {
@@ -234,11 +330,15 @@ const AppContent = () => {
       }
       return [...prev, leadToSave];
     });
+
+    // Persist to Supabase
+    await upsertContact(leadToSave, user.id);
   };
 
   const handleDeleteContact = async (id: string) => {
     if (!user) return;
     setContacts(prev => prev.filter(c => c.id !== id));
+    await deleteContact(id, user.id);
   };
 
   const handleUpdateConversation = async (conversation: Conversation) => {
@@ -250,24 +350,29 @@ const AppContent = () => {
       }
       return [...prev, conversation];
     });
+    await upsertConversation(conversation, user.id);
   };
 
   const handleCreateNewWorkflow = async (wf: Workflow) => {
     if (!user) return;
     setWorkflows(prev => [...prev, wf]);
+    await upsertWorkflow(wf, user.id);
   };
 
   const handleUpdateWorkflow = async (wf: Workflow) => {
     if (!user) return;
     setWorkflows(prev => prev.map(w => w.id === wf.id ? wf : w));
+    await upsertWorkflow(wf, user.id);
   };
 
   const handleDeleteWorkflow = async (id: string) => {
     if (!user) return;
     setWorkflows(prev => prev.filter(w => w.id !== id));
+    await deleteWorkflow(id, user.id);
   };
 
   const handleLogout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     navigate('/');
   };
@@ -284,17 +389,7 @@ const AppContent = () => {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-[#f0f9ff] flex items-center justify-center p-6">
-        <div className="bg-white p-12 rounded-[32px] shadow-sm max-w-md text-center border border-red-100">
-           <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Ban size={40} />
-           </div>
-           <h1 className="text-2xl font-normal text-[#1f1f1f] mb-2">No User</h1>
-           <p className="text-[#444746] mb-8">Please refresh the page.</p>
-        </div>
-      </div>
-    );
+    return <Auth onLogin={() => { /* onAuthStateChange handles it */ }} />;
   }
 
   return (
@@ -561,7 +656,7 @@ const AppContent = () => {
         } />
 
         <Route path="/tasks" element={
-            <TaskManager leads={contacts} />
+            <TaskManager leads={contacts} user={user} />
         } />
 
         <Route path="/knowledge-base" element={
